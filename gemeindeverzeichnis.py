@@ -29,6 +29,13 @@ GrosseKreisstadt = 67
 AmtsangehoerigeGemeinde = 68
 AmtsfreieGemeinde = 69
 
+LAND_LEVEL = 10
+REGIERUNGSBEZIRK_LEVEL = 20
+REGION_LEVEL = 30
+KREIS_LEVEL = 40
+GEMEINDEVERBAND_LEVEL = 50
+GEMEINDE_LEVEL = 60
+
 _kreistypen = {
     41: u'Kreisfreie Stadt',
     42: u'Stadtkreis',
@@ -62,6 +69,12 @@ _gemeindetypen = {
     69: u'Amtsfreie Gemeinde',
 }
 
+
+def _int_or_none(s):
+    if s.strip() == '':
+        return None
+    return int(s)
+
 def kreistyp_string(typ):
     if typ in _kreistypen:
         return _kreistypen[typ]
@@ -77,158 +90,283 @@ def gemeindetyp_string(typ):
         return _gemeindetypen[typ]
     return None
 
-class ARSObject(object):
-    def __init__(self, ags=None, ars=None, gebietsstand=None):
-        self.ags = ags
-        self.ars = ars
-        self.gebietsstand = gebietsstand
+class DerivedBevoelkerungMixin(object):
+    def _get_bevoelkerung(self):
+        return reduce(lambda i, x: i + x, [a.bevoelkerung for a in self.children])
 
-class Land(ARSObject):
-    def __init__(self, ars=None, gebietsstand=None, 
+    bevoelkerung = property(_get_bevoelkerung)
+
+    def _get_maennlich(self):
+        return reduce(lambda i, x: i + x, [a.maennlich for a in self.children])
+
+    maennlich = property(_get_maennlich)
+
+    def _get_weiblich(self):
+        return reduce(lambda i, x: i + x, [a.weiblich for a in self.children])
+
+    weiblich = property(_get_weiblich)
+
+class RSObject(object):
+    def __init__(self, ags=None, rs=None, gebietsstand=None):
+        self.ags = ags
+        self.rs = rs
+        self.gebietsstand = gebietsstand
+        self.parent = None
+        self.children = []
+    
+    def add_child(self, obj):
+        self.children.append(obj)
+        obj.parent = self
+
+    def remove_child(self, obj):
+        self.children.remove(obj)
+        obj.parent = None
+
+class Land(RSObject, DerivedBevoelkerungMixin):
+    def __init__(self, rs=None, gebietsstand=None, 
                  name=None, sitz_landesregierung=None):
-        ARSObject.__init__(self, ars, ars, gebietsstand)
+        RSObject.__init__(self, rs, rs, gebietsstand)
         self.name = name
         self.sitz_landesregierung = sitz_landesregierung
+        self.level = LAND_LEVEL
 
     def __repr__(self):
-        return "<Land: %r %r %r>" % (self.ars, self.name, self.sitz_landesregierung)
+        return "<Land: %r %r %r>" % (self.rs, self.name, self.sitz_landesregierung)
 
-class Regierungsbezirk(ARSObject):
-    def __init__(self, ars=None, gebietsstand=None, 
+class Regierungsbezirk(RSObject, DerivedBevoelkerungMixin):
+    def __init__(self, rs=None, gebietsstand=None, 
                  name=None, sitz_verwaltung=None):
-        ARSObject.__init__(self, ars, ars, gebietsstand)
+        RSObject.__init__(self, rs, rs, gebietsstand)
         self.name = name
         self.sitz_verwaltung = sitz_verwaltung
+        self.level = REGIERUNGSBEZIRK_LEVEL
 
     def __repr__(self):
-        return "<Regierungsbezirk: %r %r %r>" % (self.ars, self.name, self.sitz_verwaltung)
+        return "<Regierungsbezirk: %r %r %r>" % (self.rs, self.name, self.sitz_verwaltung)
 
-class Region(ARSObject):
-    def __init__(self, ars=None, gebietsstand=None, 
+class Region(RSObject, DerivedBevoelkerungMixin):
+    def __init__(self, rs=None, gebietsstand=None, 
                  name=None, sitz_verwaltung=None):
-        ARSObject.__init__(self, ars, ars, gebietsstand)
+        RSObject.__init__(self, rs, rs, gebietsstand)
         self.name = name
         self.sitz_verwaltung = sitz_verwaltung
+        self.level = REGION_LEVEL
 
     def __repr__(self):
-        return "<Region: %r %r %r>" % (self.ars, self.name, self.sitz_verwaltung)
+        return "<Region: %r %r %r>" % (self.rs, self.name, self.sitz_verwaltung)
 
-class Kreis(ARSObject):
-    def __init__(self, ars=None, gebietsstand=None, 
+class Kreis(RSObject, DerivedBevoelkerungMixin):
+    def __init__(self, rs=None, gebietsstand=None, 
                  name=None, sitz_verwaltung=None, typ=None):
-        ARSObject.__init__(self, ars, ars, gebietsstand)
+        RSObject.__init__(self, rs, rs, gebietsstand)
         self.name = name
         self.sitz_verwaltung = sitz_verwaltung
         self.typ = typ
+        self.level = KREIS_LEVEL
+
+    def _get_typ_string(self):
+        return kreistyp_string(self.typ)
+    typ_string = property(_get_typ_string)
 
     def __repr__(self):
-        return "<Kreis: %r %r %r %r>" % (self.ars, self.name, self.sitz_verwaltung, kreistyp_string(self.typ))
+        return "<Kreis: %r %r %r %r>" % (self.rs, self.name, self.sitz_verwaltung, kreistyp_string(self.typ))
 
-class Gemeindeverband(ARSObject):
-    def __init__(self, ars=None, gebietsstand=None, 
+class Gemeindeverband(RSObject, DerivedBevoelkerungMixin):
+    def __init__(self, rs=None, gebietsstand=None, 
                  name=None, sitz_verwaltung=None, typ=None):
-        ARSObject.__init__(self, None, ars, gebietsstand)
+        RSObject.__init__(self, None, rs, gebietsstand)
         self.name = name
         self.sitz_verwaltung = sitz_verwaltung
         self.typ = typ
-
-    def __repr__(self):
-        return "<Gemeindeverband: %r %r %r %r>" % (self.ars, self.name, self.sitz_verwaltung, verbandstyp_string(self.typ))
+        self.level = GEMEINDEVERBAND_LEVEL
     
-class Gemeinde(ARSObject):
-    def __init__(self, ags=None, ars=None, gebietsstand=None, 
+    def _get_typ_string(self):
+        return verbandstyp_string(self.typ)
+    typ_string = property(_get_typ_string)
+
+    def __repr__(self):
+        return "<Gemeindeverband: %r %r %r %r>" % (self.rs, self.name, self.sitz_verwaltung, verbandstyp_string(self.typ))
+    
+class Gemeinde(RSObject):
+    def __init__(self, ags=None, rs=None, gebietsstand=None, 
                  name=None, typ=None):
-        ARSObject.__init__(self, ags, ars, gebietsstand)
+        RSObject.__init__(self, ags, rs, gebietsstand)
         self.name = name
         self.typ = typ
         self.bevoelkerung = 0
         self.maennlich = 0
         self.flaeche = 0
+        self.level = GEMEINDE_LEVEL
+
+    def _get_typ_string(self):
+        return gemeindetyp_string(self.typ)
+    typ_string = property(_get_typ_string)
 
     def _get_weiblich(self):
         return self.bevoelkerung - self.maennlich
     weiblich = property(_get_weiblich)
+
     def __repr__(self):
-        return "<Gemeinde: %r %r %r %r>" % (self.ars, self.ags, self.name, gemeindetyp_string(self.typ))
+        return "<Gemeinde: %r %r %r %r>" % (self.rs, self.ags, self.name, gemeindetyp_string(self.typ))
 
+class ADReader(object):
+    """
+    Initializes a new reader for the GV100AD.ASC (administrative division) data set.
 
-class Reader(object):
+    Arguments:
+    filename: the path to the ASC file containing GV100AD data.
+    """
     def __init__(self, filename):
-        self.list = None
         self.filename = filename
         self.handlers = {
-            '10': self.handle_land,
-            '20': self.handle_regierungsbezirk,
-            '30': self.handle_region,
-            '40': self.handle_landkreis,
-            '50': self.handle_gemeindeverband,
-            '60': self.handle_gemeinde,
+            '10': self._handle_land,
+            '20': self._handle_regierungsbezirk,
+            '30': self._handle_region,
+            '40': self._handle_landkreis,
+            '50': self._handle_gemeindeverband,
+            '60': self._handle_gemeinde,
             }
-
-    def parse_gebietsstand(self, line):
-        return date(int(line[2:6]), int(line[6:8]), int(line[8:10]))
+        self.index = {}
 
     def read(self):
+        """
+        Reads in the data from the file.
+        
+        Returns all entries in a dictionary indexed by the Regionalschlüssel.
+        """
         self.list = []
         f = open(self.filename, 'r', 'cp850')
         for line in f:
             t = line[0:2]
             self.handlers[t](line)
-        l = self.list
-        self.list = None
+        self._remove_bogus_gv(self.index)
+        l = self.index
+        self.index = None
         return l
 
-    def handle_land(self, line):
-        stand = self.parse_gebietsstand(line)
-        ars = ags = line[10:12]
+    def _remove_bogus_gv(self, index):
+        toremove = []
+        for i in index:
+            if not isinstance(index[i], Gemeindeverband):
+                continue
+            gv = index[i]
+            if len(gv.children) == 1:
+                p = gv.parent;
+                p.remove_child(gv)
+                p.add_child(gv.children[0])
+                toremove.append(i)
+
+        for i in toremove:
+            del index[i]
+
+    def _parse_gebietsstand(self, line):
+        return date(int(line[2:6]), int(line[6:8]), int(line[8:10]))
+
+    def _handle_land(self, line):
+        stand = self._parse_gebietsstand(line)
+        rs = ags = line[10:12]
         name = line[22:72].strip()
         sl = line[72:122].strip()
-        self.list.append(Land(ars=ars, name=name, gebietsstand=stand, sitz_landesregierung=sl))
+        l = Land(rs=rs, name=name, gebietsstand=stand, sitz_landesregierung=sl)
+        self.list.append(l)
+        self.index[l.rs] = l
         pass
 
-    def handle_regierungsbezirk(self, line):
-        stand = self.parse_gebietsstand(line)
-        ars = ags = line[10:13]
+    def _handle_regierungsbezirk(self, line):
+        stand = self._parse_gebietsstand(line)
+        rs = ags = line[10:13]
         name = line[22:72].strip()
         sl = line[72:122].strip()
-        self.list.append(Regierungsbezirk(ars=ars, name=name, gebietsstand=stand, sitz_verwaltung=sl))
+        rb = Regierungsbezirk(rs=rs, name=name, gebietsstand=stand, sitz_verwaltung=sl)
+
+        parent = self.index[rb.rs[0:2]]
+        parent.add_child(rb)
+
+        self.list.append(rb)
+        self.index[rb.rs] = rb
         pass
 
-    def handle_region(self, line):
-        stand = self.parse_gebietsstand(line)
-        ars = ags = line[10:14]
+    def _handle_region(self, line):
+        stand = self._parse_gebietsstand(line)
+        rs = ags = line[10:14]
         name = line[22:72].strip()
         sl = line[72:122].strip()
-        self.list.append(Region(ars=ars, name=name, gebietsstand=stand, sitz_verwaltung=sl))
+        reg = Region(rs=rs, name=name, gebietsstand=stand, sitz_verwaltung=sl)
 
-    def handle_landkreis(self, line):
-        stand = self.parse_gebietsstand(line)
-        ars = ags = line[10:15]
+        parent = self.index[reg.rs[0:3]]
+        parent.add_child(reg)
+
+        self.list.append(reg)
+        self.index[reg.rs] = reg
+
+    def _handle_landkreis(self, line):
+        stand = self._parse_gebietsstand(line)
+        rs = ags = line[10:15]
         name = line[22:72].strip()
         sl = line[72:122].strip()
         typ = int(line[122:124])
-        self.list.append(Kreis(ars=ars, name=name, gebietsstand=stand, sitz_verwaltung=sl, typ=typ))
+        k = Kreis(rs=rs, name=name, gebietsstand=stand, sitz_verwaltung=sl, typ=typ)
 
-    def handle_gemeindeverband(self, line):
-        stand = self.parse_gebietsstand(line)
-        ars = line[10:15]+line[18:22]
+        # Region?
+        if k.rs[0:4] in self.index:
+            self.index[k.rs[0:4]].add_child(k)
+        # Regierunsbezirk?
+        elif k.rs[0:3] in self.index:
+            self.index[k.rs[0:3]].add_child(k)
+        else:
+            # otherwise, Land
+            self.index[k.rs[0:2]].add_child(k)
+
+        self.list.append(k)
+        self.index[k.rs] = k
+
+    def _handle_gemeindeverband(self, line):
+        stand = self._parse_gebietsstand(line)
+        rs = line[10:15]+line[18:22]
         name = line[22:72].strip()
         sl = line[72:122].strip()
         typ = int(line[122:124])
-        self.list.append(Gemeindeverband(ars=ars, name=name, gebietsstand=stand, sitz_verwaltung=sl, typ=typ))
+        gv = Gemeindeverband(rs=rs, name=name, gebietsstand=stand, sitz_verwaltung=sl, typ=typ)
+        
+        if gv.rs[0:5] in self.index:
+            self.index[gv.rs[0:5]].add_child(gv)
+        elif gv.rs[0:5].endswith('000'):
+            self.index[gv.rs[0:2]].add_child(gv)
 
-    def handle_gemeinde(self, line):
-        stand = self.parse_gebietsstand(line)
-        ars = line[10:15]+line[18:22]+line[15:18]
+        self.list.append(gv)
+        self.index[gv.rs] = gv
+
+    def _handle_gemeinde(self, line):
+        stand = self._parse_gebietsstand(line)
+        rs = line[10:15]+line[18:22]+line[15:18]
         ags = line[10:15]+line[15:18]
         name = line[22:72].strip()
         sl = line[72:122].strip()
         typ = int(line[122:124])
-        self.list.append(Gemeinde(ars=ars, ags=ags, name=name, gebietsstand=stand, typ=typ))
+        gem = Gemeinde(rs=rs, ags=ags, name=name, gebietsstand=stand, typ=typ)
+        gem.bevoelkerung = int(line[139:150].strip())
+        gem.maennlich = int(line[150:161].strip())
+        gem.flaeche = int(line[128:139].strip())
+        gem.finanzamtsbezirk = _int_or_none(line[177:181])
+        gem.oberlandesgerichtsbezirk = line[181:183].strip()
+        gem.landgerichtsbezirk = _int_or_none(line[183])
+        gem.amtsgerichtsbezirk = _int_or_none(line[184])
+        gem.arbeitsamtsbezirk = _int_or_none(line[185:190])
+
+        gem.plz = line[165:170]
+        gem.plzeindeutig = line[170:175].strip() == ''
+
+        bwvon = _int_or_none(line[190:193])
+        bwbis = _int_or_none(line[193:196])
+        gem.bundestagswahlkreis = (bwvon, bwbis)
+        self.index[gem.rs[0:9]].add_child(gem)
+        self.list.append(gem)
+        self.index[gem.rs] = gem
 
 def main(argv):
-    result = Reader(argv[0]).read()
-    print len(result)
+    result = ADReader(argv[0]).read()
+    from pprint import pprint
+    pprint(result['081155002013'])
 
 if __name__ == '__main__':
     import sys
