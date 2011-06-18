@@ -1,3 +1,9 @@
+python-gemeindeverzeichnis (0.2) natty; urgency=low
+
+  * add ignore_list and remove_dummy_gemeindeverband options
+
+ -- Igor Podolskiy <igor.podolskiy@vwi-stuttgart.de>  Sat, 18 Jun 2011 21:23:56 +0000
+
 python-gemeindeverzeichnis (0.1) natty; urgency=low
 
   * Initial release.
