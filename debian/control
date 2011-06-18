@@ -1,0 +1,12 @@
+Source: python-gemeindeverzeichnis
+Section: devel
+Priority: extra
+Maintainer: Igor Podolskiy <igor.podolskiy@vwi-stuttgart.de>
+Standards-Version: 3.9.1
+Build-Depends: cdbs (>= 0.4.49), debhelper (>= 7), python (>= 2.7), python-support
+
+Package: python-gemeindeverzeichnis
+Architecture: all
+Depends: ${python:Depends}, ${misc:Depends}, 
+Description: A python module for working with the German 
+ Gemeindeverzeichnis (community data) data set.
