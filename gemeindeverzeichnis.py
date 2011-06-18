@@ -209,15 +209,23 @@ class Gemeinde(RSObject):
     def __repr__(self):
         return "<Gemeinde: %r %r %r %r>" % (self.rs, self.ags, self.name, gemeindetyp_string(self.typ))
 
+NONEXISTENT_REGIERUNGSBEZIRK_LIST = [u'031',u'032',u'033',u'034',u'071', u'072', u'073']
+
 class ADReader(object):
     """
     Initializes a new reader for the GV100AD.ASC (administrative division) data set.
 
     Arguments:
     filename: the path to the ASC file containing GV100AD data.
+    ignore_list: an iterable of unicode objects representing Regionalschluessel keys 
+                 of entities to ignore. Try with NONEXISTENT_REGIERUNGSBEZIRK_LIST.
+    remove_dummy_gemeindeverband: whether to remove the dummy Gemeindeverband-level
+                 objects containing only a single Gemeinde
     """
-    def __init__(self, filename):
+    def __init__(self, filename, ignore_list=(), remove_dummy_gemeindeverband=True):
         self.filename = filename
+        self._ignore_list = set(ignore_list)
+        self._do_remove_bogus_gv = remove_dummy_gemeindeverband
         self.handlers = {
             '10': self._handle_land,
             '20': self._handle_regierungsbezirk,
@@ -239,7 +247,8 @@ class ADReader(object):
         for line in f:
             t = line[0:2]
             self.handlers[t](line)
-        self._remove_bogus_gv(self.index)
+        if self._do_remove_bogus_gv:
+            self._remove_bogus_gv(self.index)
         l = self.index
         self.index = None
         return l
@@ -263,8 +272,10 @@ class ADReader(object):
         return date(int(line[2:6]), int(line[6:8]), int(line[8:10]))
 
     def _handle_land(self, line):
-        stand = self._parse_gebietsstand(line)
         rs = ags = line[10:12]
+        if rs in self._ignore_list:
+            return
+        stand = self._parse_gebietsstand(line)
         name = line[22:72].strip()
         sl = line[72:122].strip()
         l = Land(rs=rs, name=name, gebietsstand=stand, sitz_landesregierung=sl)
@@ -275,6 +286,8 @@ class ADReader(object):
     def _handle_regierungsbezirk(self, line):
         stand = self._parse_gebietsstand(line)
         rs = ags = line[10:13]
+        if rs in self._ignore_list:
+            return
         name = line[22:72].strip()
         sl = line[72:122].strip()
         rb = Regierungsbezirk(rs=rs, name=name, gebietsstand=stand, sitz_verwaltung=sl)
@@ -289,6 +302,8 @@ class ADReader(object):
     def _handle_region(self, line):
         stand = self._parse_gebietsstand(line)
         rs = ags = line[10:14]
+        if rs in self._ignore_list:
+            return
         name = line[22:72].strip()
         sl = line[72:122].strip()
         reg = Region(rs=rs, name=name, gebietsstand=stand, sitz_verwaltung=sl)
@@ -302,6 +317,8 @@ class ADReader(object):
     def _handle_landkreis(self, line):
         stand = self._parse_gebietsstand(line)
         rs = ags = line[10:15]
+        if rs in self._ignore_list:
+            return
         name = line[22:72].strip()
         sl = line[72:122].strip()
         typ = int(line[122:124])
@@ -323,6 +340,8 @@ class ADReader(object):
     def _handle_gemeindeverband(self, line):
         stand = self._parse_gebietsstand(line)
         rs = line[10:15]+line[18:22]
+        if rs in self._ignore_list:
+            return
         name = line[22:72].strip()
         sl = line[72:122].strip()
         typ = int(line[122:124])
@@ -339,6 +358,8 @@ class ADReader(object):
     def _handle_gemeinde(self, line):
         stand = self._parse_gebietsstand(line)
         rs = line[10:15]+line[18:22]+line[15:18]
+        if rs in self._ignore_list:
+            return
         ags = line[10:15]+line[15:18]
         name = line[22:72].strip()
         sl = line[72:122].strip()
