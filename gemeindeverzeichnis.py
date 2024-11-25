@@ -16,7 +16,7 @@ Verwaltungsgemeinschaft = 54
 Kirchspielslandgemeinde = 55
 Verwaltungsverband = 56
 VGTraegermodell = 57
-ErfuellendeGemeinde = 68
+ErfuellendeGemeinde = 58
 
 Markt = 60
 Gemeinde_KreisfreieStadt = 61
